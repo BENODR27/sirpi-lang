@@ -1,0 +1,51 @@
+name: Build Sirpi-Lang
+
+on:
+  push:
+    tags:
+      - "v*.*.*"  # Trigger on version tags like v0.1.0
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up build tools
+      if: matrix.os == 'windows-latest'
+      run: |
+        choco install mingw -y
+    - name: Install dependencies (Linux/macOS)
+      if: matrix.os != 'windows-latest'
+      run: sudo apt-get update && sudo apt-get install -y build-essential
+
+    - name: Build Sirpi-Lang
+      run: |
+        if [ "${{ matrix.os }}" == "windows-latest" ]; then
+          gcc -o sirpi.exe cli/main.c lexer/lexer.c parser/parser.c runtime/runtime.c stdlib/stdlib.c -I.
+        else
+          gcc -o sirpi cli/main.c lexer/lexer.c parser/parser.c runtime/runtime.c stdlib/stdlib.c -I.
+        fi
+
+    - name: Package Artifacts
+      run: |
+        mkdir -p release
+        cp -r stdlib examples release/
+        if [ "${{ matrix.os }}" == "windows-latest" ]; then
+          cp sirpi.exe release/
+        else
+          cp sirpi release/
+        fi
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: sirpi-${{ matrix.os }}
+        path: release/
